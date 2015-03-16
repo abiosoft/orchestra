@@ -9,7 +9,7 @@ Parameters are specified via comma separated key value column pairs through the 
 ```
 http://127.0.0.1:8080?requests=identifier1:http://url1.xyz,identifier2:http://url2.xyz
 ```
-What if the url in the value has its own `GET` parameters? Url encode the entire query string.
+What if the `value` url has its own `GET` parameters? Url encode the entire query string.
 
 ### Response
 Response comes in 2 formats
