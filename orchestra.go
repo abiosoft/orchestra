@@ -44,7 +44,7 @@ type ConnRequest struct {
 // ResponseType defaults to TypeJson
 func NewOrchestra(requests ...ConnRequest) *Orchestra {
 	conns := make([]*Conn, len(requests))
-	for i, _ := range requests {
+	for i := range requests {
 		conns[i] = NewConn(requests[i])
 	}
 	return &Orchestra{
@@ -78,7 +78,7 @@ func (o *Orchestra) UseJson() {
 // When done, it outputs to w
 func (o *Orchestra) Process(w http.ResponseWriter) {
 	var wg sync.WaitGroup
-	for i, _ := range o.conns {
+	for i := range o.conns {
 		wg.Add(1)
 		go func(num int) {
 			o.conns[num].Fetch()
@@ -108,7 +108,7 @@ func processConns(o *Orchestra, w http.ResponseWriter) error {
 // outputJson extracts all responses from o and json encode into w
 func outputJson(o *Orchestra, w io.Writer) error {
 	resps := make([]RespOutput, len(o.conns))
-	for i, _ := range resps {
+	for i := range resps {
 		if o.conns[i].err != nil {
 			resps[i] = RespOutput{Id: o.conns[i].Id, Error: o.conns[i].err.Error()}
 			continue
@@ -122,7 +122,7 @@ func outputJson(o *Orchestra, w io.Writer) error {
 // outputDelimiter extracts all responses from o and writes to w. It separates each response with
 // the specified delimeter
 func outputDelimiter(o *Orchestra, w io.Writer) error {
-	for i, _ := range o.conns {
+	for i := range o.conns {
 		var r RespOutput
 		var err error
 		if o.conns[i].err != nil {

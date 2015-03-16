@@ -1,12 +1,13 @@
 ## Orchestra
 #### Minimalistic Orchestration Layer
+[![Build Status](https://drone.io/github.com/abiosoft/orchestra/status.png)](https://drone.io/github.com/abiosoft/orchestra/latest)
 
 Runs API calls concurrently
 
 ### Usage
 Parameters are specified via comma separated key value column pairs through the `requests` `GET` parameter.
 ```
-http://127.0.0.1?requests=identifier1:http://url1.xyz,identifier2:http://url2.xyz
+http://127.0.0.1:8080?requests=identifier1:http://url1.xyz,identifier2:http://url2.xyz
 ```
 
 ### Response
