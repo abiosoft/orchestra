@@ -5,8 +5,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 )
+
+func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+}
 
 func main() {
 	http.HandleFunc("/", handler)
