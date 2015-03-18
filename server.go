@@ -13,6 +13,9 @@ func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 }
 
+const badRequestInvalidMsg = "Bad Request: entries should be in comma separated multiple 'id:url' format e.g. 'sampleid:http://url.com,sampleid2:http://url2.com'"
+const badRequestRequiredMsg = "Bad Request: required parameter 'requests' missing."
+
 func main() {
 	http.HandleFunc("/", handler)
 
@@ -30,10 +33,13 @@ func main() {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+
+	log.Println(r.Method, r.URL.Path, r.URL.RawQuery)
+
 	rs := strings.TrimSpace(r.FormValue("requests"))
 	if rs == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Bad Request: required parameter 'requests' missing."))
+		w.Write([]byte(badRequestRequiredMsg))
 		return
 	}
 
@@ -44,7 +50,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		str := strings.SplitN(v, ":", 2)
 		if len(str) < 2 {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("Bad Request: entries should be in comma separated multiple 'id:url' format e.g. 'sampleid:http://url.com,sampleid2:http://url2.com'"))
+			w.Write([]byte(badRequestInvalidMsg))
 			return
 		}
 		crs[i] = ConnRequest{strings.TrimSpace(str[0]), strings.TrimSpace(str[1])}
