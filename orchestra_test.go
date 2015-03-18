@@ -17,13 +17,17 @@ var orcRespJson = `[{"id":"request1","status_code":200,"status":"200 OK","body":
 
 var orcRespDelim = `Id: request1,Status: 200 OK
 OK
-====================Id: request2,Status: 200 OK
+====================
+Id: request2,Status: 200 OK
 OK
-====================Id: request3,Status: 200 OK
+====================
+Id: request3,Status: 200 OK
 OK
-====================Id: request4,Status: 200 OK
+====================
+Id: request4,Status: 200 OK
 OK
-====================Id: request5,Status: 200 OK
+====================
+Id: request5,Status: 200 OK
 OK`
 
 var handRespJson = `[{"id":"id1","status_code":200,"status":"200 OK","body":"OK"},{"id":"id2","status_code":200,"status":"200 OK","body":"OK"}]`
