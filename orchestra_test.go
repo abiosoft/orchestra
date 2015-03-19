@@ -41,19 +41,31 @@ OK/5`
 
 var handRespJson = `[{"id":"id1","status_code":200,"status":"200 OK","body":"OK/"},{"id":"id2","status_code":200,"status":"200 OK","body":"OK/"}]`
 
+var handRespDelim = []string{`Id: id1, Status: 200 OK
+OK/
+---XXX---
+Id: id2, Status: 200 OK
+OK/`,
+	`Id: id1, Status: 200 OK
+OK/
+000000
+Id: id2, Status: 200 OK
+OK/`,
+}
+
 func TestConn(t *testing.T) {
 	testServer := httptest.NewServer(okHandler)
 	conn := NewConn(ConnRequest{"sample", testServer.URL})
 	err := conn.Fetch()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	body, err := conn.Response.ReadAll()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if !bytes.Equal(body, []byte("OK/")) {
-		t.Errorf("expected %v found %v", "OK/", string(body))
+		t.Fatalf("expected %v found %v", "OK/", string(body))
 	}
 	testServer.Close()
 }
@@ -68,16 +80,31 @@ func TestOrchestra(t *testing.T) {
 	w := httptest.NewRecorder()
 	orchestra.Process(w)
 	if strings.TrimSpace(w.Body.String()) != orcRespJson {
-		t.Errorf("expected %v found %v", orcRespJson, w.Body.String())
+		t.Fatalf("expected %v found %v", orcRespJson, w.Body.String())
 	}
 
 	w = httptest.NewRecorder()
-	orchestra.UseDelimiter("====================")
+	orchestra.SetDelimiter("====================")
 	orchestra.Process(w)
 	if strings.TrimSpace(w.Body.String()) != orcRespDelim {
-		t.Errorf("expected %v found %v", orcRespDelim, w.Body.String())
+		t.Fatalf("expected %v found %v", orcRespDelim, w.Body.String())
 	}
 	testServer.Close()
+}
+
+func TestOrchestraAdd(t *testing.T) {
+	testServer := httptest.NewServer(okHandler)
+	rs := make([]ConnRequest, 4)
+	for i := 0; i < 4; i++ {
+		rs[i] = ConnRequest{fmt.Sprint("request", i+1), fmt.Sprintf("%s/%d", testServer.URL, i+1)}
+	}
+	orchestra := NewOrchestra(rs...)
+	orchestra.Add(ConnRequest{fmt.Sprint("request", 5), fmt.Sprintf("%s/%d", testServer.URL, 5)})
+	w := httptest.NewRecorder()
+	orchestra.Process(w)
+	if strings.TrimSpace(w.Body.String()) != orcRespJson {
+		t.Fatalf("expected %v found %v", orcRespJson, w.Body.String())
+	}
 }
 
 func TestTimeout(t *testing.T) {
@@ -103,13 +130,13 @@ func TestHandler(t *testing.T) {
 	testHandler := http.HandlerFunc(handler)
 	testHandler.ServeHTTP(w, req)
 	if strings.TrimSpace(w.Body.String()) != handRespJson {
-		t.Errorf("expected %v found %v", handRespJson, string(w.Body.Bytes()))
+		t.Fatalf("expected %v found %v", handRespJson, string(w.Body.Bytes()))
 	}
 }
 
 func TestHandlerTimeout(t *testing.T) {
 	tServer := httptest.NewServer(tHandler)
-	req, err := http.NewRequest("GET", "/?timeout=2&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
+	req, err := http.NewRequest("GET", "/?timeout=2000&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,6 +144,43 @@ func TestHandlerTimeout(t *testing.T) {
 	testHandler := http.HandlerFunc(handler)
 	testHandler.ServeHTTP(w, req)
 	checkErrResp(t, w)
+}
+
+func TestHandlerRespJson(t *testing.T) {
+	tServer := httptest.NewServer(okHandler)
+	req, err := http.NewRequest("GET", "/?type=json&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(handler)
+	testHandler.ServeHTTP(w, req)
+	if strings.TrimSpace(w.Body.String()) != handRespJson {
+		t.Fatalf("expected %v found %v", handRespJson, w.Body.String())
+	}
+}
+
+func TestHandlerRespDelim(t *testing.T) {
+	tServer := httptest.NewServer(okHandler)
+	req, err := http.NewRequest("GET", "/?type=delimeter&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	testHandler := http.HandlerFunc(handler)
+	testHandler.ServeHTTP(w, req)
+	if strings.TrimSpace(w.Body.String()) != handRespDelim[0] {
+		t.Fatalf("expected %v found %v", handRespDelim[0], w.Body.String())
+	}
+	req, err = http.NewRequest("GET", "/?type=delimeter&delimiter=000000&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Body.Reset()
+	testHandler.ServeHTTP(w, req)
+	if strings.TrimSpace(w.Body.String()) != handRespDelim[1] {
+		t.Fatalf("expected %v found %v", handRespDelim[1], w.Body.String())
+	}
 }
 
 func checkErrResp(t *testing.T, w *httptest.ResponseRecorder) {

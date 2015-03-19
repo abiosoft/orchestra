@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +18,7 @@ const badRequestInvalidMsg = "Bad Request: entries should be in comma separated 
 const badRequestRequiredMsg = "Bad Request: required parameter 'requests' missing."
 
 func main() {
+
 	http.HandleFunc("/", handler)
 
 	port := "8080"
@@ -27,10 +27,45 @@ func main() {
 		port = os.Args[1]
 	}
 
-	fmt.Println("Orchestra listening on port " + port)
+	log.Println("Orchestra listening on port " + port)
 	err := http.ListenAndServe(":"+port, nil)
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+type params struct {
+	requests  string
+	timeout   time.Duration
+	respType  int
+	delimiter string
+}
+
+func digestRequest(r *http.Request) params {
+	rs := strings.TrimSpace(r.FormValue("requests"))
+	rt := strings.ToLower(strings.TrimSpace(r.FormValue("type")))
+	respType := -1
+	switch rt {
+	case "json":
+		respType = typeJson
+		break
+	case "delimeter":
+		respType = typeDelimiter
+		break
+	}
+	if rt == "delimeter" {
+		respType = typeDelimiter
+	}
+	var timeout time.Duration
+	if t := strings.TrimSpace(r.FormValue("timeout")); t != "" {
+		tms, _ := strconv.ParseInt(t, 10, 64)
+		timeout = time.Duration(tms) * time.Millisecond
+	}
+	return params{
+		rs,
+		timeout,
+		respType,
+		r.FormValue("delimiter"),
 	}
 }
 
@@ -38,20 +73,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	log.Println(r.Method, r.URL.Path, r.URL.RawQuery)
 
-	rs := strings.TrimSpace(r.FormValue("requests"))
-	if rs == "" {
+	params := digestRequest(r)
+
+	if params.requests == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(badRequestRequiredMsg))
 		return
 	}
 
-	var timeout time.Duration
-	if t := strings.TrimSpace(r.FormValue("timeout")); t != "" {
-		tms, _ := strconv.ParseInt(t, 10, 64)
-		timeout = time.Duration(tms) * time.Millisecond
-	}
-
-	kv := strings.Split(rs, ",")
+	kv := strings.Split(params.requests, ",")
 	crs := make([]ConnRequest, len(kv))
 
 	for i, v := range kv {
@@ -65,8 +95,21 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orchestra := NewOrchestra(crs...)
-	if timeout > 0 {
-		orchestra.SetTimeout(timeout)
+	if params.timeout > 0 {
+		orchestra.SetTimeout(params.timeout)
+	}
+
+	if params.respType > -1 {
+		switch params.respType {
+		case typeDelimiter:
+			orchestra.UseDelimeter()
+			if params.delimiter != "" {
+				orchestra.SetDelimiter(params.delimiter)
+			}
+			break
+		default:
+			orchestra.UseJson()
+		}
 	}
 	orchestra.Process(w)
 }

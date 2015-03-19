@@ -11,14 +11,22 @@ APIs are set via comma separated key value column pairs through the `requests` q
 http://127.0.0.1:8080?requests=identifier1:http://url1.xyz,identifier2:http://url2.xyz
 ```
 What if the `value` url has its own query parameters? Url encode the entire query string starting from `?`.
-#### Timeout
-Timeout can be set via `timeout` query parameter. Timeout is in milliseconds.
+### Parameters
+
+| Parameter | Description | Default | Usage |
+| --------- | ----------- | ------- | ----- |
+| Requests | Key value column pairs | | `requests=id1:http://url1.xy,id2:http://url2.xy` |
+| timeout | Timeout in milliseconds | `10000` | `timeout=500`
+| type | Response Type `[json, delimeter]`| `json` | `type=json`
+| delimeter| Delimeter to use. (requires `type`) | `---XXX---` | `&type=delimeter&delimeter=---XXX---`
+
+Sample request with all parameters
 ```
-http://127.0.0.1:8080?requests=...&timeout=500
+http://127.0.0.1:8080?requests=id1:http://url1.xy,id2:http://url2.xy&timeout=500&type=delimeter&delimeter=---XXX---
 ```
 
 ### Response
-Response comes in 2 formats
+Response comes in 2 format specified by `type` parameter.
 #### 1. Json
 ```
 [
@@ -40,7 +48,7 @@ Response comes in 2 formats
 ```
 Id: identifier1, Status: 200 OK
 <html><body><h1>It works!</h1></body></html>
-<Configured Delimeter>
+---XXX---
 Id: identifier2, Status: 400 Bad Request
 Bad Request: required parameter 'requests' missing.
 ```

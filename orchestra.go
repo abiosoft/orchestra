@@ -19,10 +19,14 @@ const (
 	typeJson = iota
 	typeDelimiter
 
-	defaultTimeout = 10 * time.Second
+	defaultTimeout   = 10 * time.Second
+	defaultDelimeter = "---XXX---\n"
 )
 
-var errInvalidResponseType = errors.New("Invalid Response Type specified. Must be one of TypeJson, TypeDelimiter")
+var (
+	errInvalidResponseType = errors.New("Invalid Response Type specified. Must be one of TypeJson, TypeDelimiter")
+	errTimeout             = errors.New("Timeout exceeded! Connection terminated.")
+)
 
 // Orchestra is the high level representation of the Orchestration Layer
 type Orchestra struct {
@@ -50,7 +54,7 @@ func NewOrchestra(requests ...ConnRequest) *Orchestra {
 		conns,
 		typeJson,
 		&sync.Mutex{},
-		"",
+		defaultDelimeter,
 		defaultTimeout,
 	}
 }
@@ -72,12 +76,17 @@ func (o *Orchestra) SetTimeout(t time.Duration) {
 	}
 }
 
-// UseDelimiter instructs the Orchestra to use separate plain text outputs with delimeter instead of Json
-func (o *Orchestra) UseDelimiter(d string) {
+// SetDelimiter instructs the Orchestra to use separate plain text outputs with delimeter instead of Json
+func (o *Orchestra) SetDelimiter(d string) {
 	o.delimiter = d
 	if !strings.HasSuffix(d, "\n") {
 		o.delimiter += "\n"
 	}
+	o.responseType = typeDelimiter
+}
+
+// UseJson instructs the Orchestra to use Json for output
+func (o *Orchestra) UseDelimeter() {
 	o.responseType = typeDelimiter
 }
 
@@ -122,13 +131,13 @@ func processConns(o *Orchestra, w http.ResponseWriter) error {
 
 // outputJson extracts all responses from o and json encode into w
 func outputJson(o *Orchestra, w io.Writer) error {
-	resps := make([]RespOutput, len(o.conns))
+	resps := make([]respOutput, len(o.conns))
 	for i := range resps {
 		if o.conns[i].err != nil {
-			resps[i] = RespOutput{Id: o.conns[i].id, Error: o.conns[i].err.Error()}
+			resps[i] = respOutput{Id: o.conns[i].id, Error: o.conns[i].err.Error()}
 			continue
 		}
-		resps[i] = o.conns[i].Response.Output()
+		resps[i] = o.conns[i].Response.output()
 	}
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(resps)
@@ -138,12 +147,12 @@ func outputJson(o *Orchestra, w io.Writer) error {
 // the specified delimeter
 func outputDelimiter(o *Orchestra, w io.Writer) error {
 	for i := range o.conns {
-		var r RespOutput
+		var r respOutput
 		var err error
 		if o.conns[i].err != nil {
-			r = RespOutput{Id: o.conns[i].id, Error: o.conns[i].err.Error()}
+			r = respOutput{Id: o.conns[i].id, Error: o.conns[i].err.Error()}
 		} else {
-			r = o.conns[i].Response.Output()
+			r = o.conns[i].Response.output()
 		}
 		_, err = w.Write(r.Bytes())
 		if err != nil {
@@ -239,18 +248,18 @@ func (r *Response) ReadAll() ([]byte, error) {
 }
 
 // Output returns a Json marshal friendly strcut of Response for output
-func (r *Response) Output() RespOutput {
+func (r *Response) output() respOutput {
 	if r.extract == nil {
 		_, err := r.ReadAll()
 		if err != nil {
 			// check for timeout error
 			if te, ok := err.(net.Error); ok && te.Timeout() {
-				err = errors.New("Timeout exceeded! Connection terminated.")
+				err = errTimeout
 			}
-			return RespOutput{Error: err.Error()}
+			return respOutput{Error: err.Error()}
 		}
 	}
-	return RespOutput{
+	return respOutput{
 		r.id,
 		r.StatusCode,
 		r.Status,
@@ -260,7 +269,7 @@ func (r *Response) Output() RespOutput {
 }
 
 // RespOutput is an output struct suited for Json marshal
-type RespOutput struct {
+type respOutput struct {
 	Id         string `json:"id"`
 	StatusCode int    `json:"status_code,omitempty"`
 	Status     string `json:"status,omitempty"`
@@ -269,11 +278,11 @@ type RespOutput struct {
 }
 
 // String returns the string representation to be used in TypeDelimeter response type.
-func (r *RespOutput) String() string {
+func (r *respOutput) String() string {
 	return fmt.Sprintf("Id: %v, Status: %v\n%v\n", r.Id, r.Status, r.Body)
 }
 
 // Bytes return the bytes representation of String()
-func (r *RespOutput) Bytes() []byte {
+func (r *respOutput) Bytes() []byte {
 	return []byte(r.String())
 }
