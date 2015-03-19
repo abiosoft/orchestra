@@ -41,6 +41,10 @@ Response comes in 2 format specified by `type` parameter.
     "status_code": 400,
     "status": "400 Bad Request",
     "body": "Bad Request: required parameter 'requests' missing."
+  },
+  {
+    "id": "identifier3",
+    "error": "Request timed out"
   }
 ]
 ```
@@ -51,6 +55,9 @@ Id: identifier1, Status: 200 OK
 ---XXX---
 Id: identifier2, Status: 400 Bad Request
 Bad Request: required parameter 'requests' missing.
+---XXX---
+Id: identifier3, Status: error
+Request timed out
 ```
 
 ### Server

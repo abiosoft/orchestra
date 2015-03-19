@@ -205,12 +205,14 @@ func (c *Conn) Fetch() error {
 	}
 	// pass headers
 	req.Header = c.Header
+
+	// workaround for query params
 	values := req.URL.Query()
 	for m, v := range c.Params {
 		values.Add(m, v)
 	}
-	// workaround for query params
 	req.URL.RawQuery = values.Encode()
+
 	response, err := c.Do(req)
 	if err != nil {
 		log.Println(err)
@@ -279,6 +281,9 @@ type respOutput struct {
 
 // String returns the string representation to be used in TypeDelimeter response type.
 func (r *respOutput) String() string {
+	if r.Error != "" {
+		return fmt.Sprintf("Id: %v, Status: %v\n%v\n", r.Id, "error", r.Error)
+	}
 	return fmt.Sprintf("Id: %v, Status: %v\n%v\n", r.Id, r.Status, r.Body)
 }
 
