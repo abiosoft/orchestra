@@ -79,6 +79,7 @@ Go is a prerequisite, [install it here](https://golang.org/doc/install) if you d
 ### Planned
 * Support POST and other request types.
 * Configuration files.
+* Web Interface
 * Better CLI support.
 * Request hierarchy and dependency. Ability to call one request before the other and possibly extract values from response of one request to use in another request.
 * Robust test cases and high code coverage.
