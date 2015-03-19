@@ -172,7 +172,7 @@ func TestHandlerRespDelim(t *testing.T) {
 	if strings.TrimSpace(w.Body.String()) != handRespDelim[0] {
 		t.Fatalf("expected %v found %v", handRespDelim[0], w.Body.String())
 	}
-	req, err = http.NewRequest("GET", "/?type=delimeter&delimiter=000000&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
+	req, err = http.NewRequest("GET", "/?type=delimiter&delimiter=000000&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

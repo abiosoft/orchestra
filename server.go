@@ -49,11 +49,11 @@ func digestRequest(r *http.Request) params {
 	case "json":
 		respType = typeJson
 		break
-	case "delimeter":
+	case "delimiter":
 		respType = typeDelimiter
 		break
 	}
-	if rt == "delimeter" {
+	if rt == "delimiter" {
 		respType = typeDelimiter
 	}
 	var timeout time.Duration
