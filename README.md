@@ -17,12 +17,12 @@ What if the `value` url has its own query parameters? Url encode the entire quer
 | --------- | ----------- | ------- | ----- |
 | requests | Key value column pairs | | `requests=id1:http://url1.xy,id2:http://url2.xy` |
 | timeout | Timeout in milliseconds | 10000 | `timeout=500`
-| type | Response Type `[json, delimeter]`| json | `type=json`
-| delimeter| Delimeter to use. (requires `type=delimiter`) | ---XXX--- | `&type=delimeter&delimeter=---XXX---`
+| type | Response Type `[json, delimiter]`| json | `type=json`
+| delimiter| Delimiter to use. (requires `type=delimiter`) | ---XXX--- | `&type=delimeter&delimeter=---XXX---`
 
 Sample request with all parameters
 ```
-http://127.0.0.1:8080?requests=id1:http://url1.xy,id2:http://url2.xy&timeout=500&type=delimeter&delimeter=---XXX---
+http://127.0.0.1:8080?requests=id1:http://url1.xy,id2:http://url2.xy&timeout=500&type=delimiter&delimiter=---XXX---
 ```
 
 ### Response
@@ -48,7 +48,7 @@ Response comes in 2 format specified by `type` parameter.
   }
 ]
 ```
-#### 2. Delimeter Separated
+#### 2. Delimiter Separated
 ```
 Id: identifier1, Status: 200 OK
 <html><body><h1>It works!</h1></body></html>
