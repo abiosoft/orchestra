@@ -162,7 +162,7 @@ func TestHandlerRespJson(t *testing.T) {
 
 func TestHandlerRespDelim(t *testing.T) {
 	tServer := httptest.NewServer(okHandler)
-	req, err := http.NewRequest("GET", "/?type=delimeter&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
+	req, err := http.NewRequest("GET", "/?type=delimiter&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
