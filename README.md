@@ -15,10 +15,10 @@ What if the `value` url has its own query parameters? Url encode the entire quer
 
 | Parameter | Description | Default | Usage |
 | --------- | ----------- | ------- | ----- |
-| Requests | Key value column pairs | | `requests=id1:http://url1.xy,id2:http://url2.xy` |
-| timeout | Timeout in milliseconds | `10000` | `timeout=500`
-| type | Response Type `[json, delimeter]`| `json` | `type=json`
-| delimeter| Delimeter to use. (requires `type`) | `---XXX---` | `&type=delimeter&delimeter=---XXX---`
+| requests | Key value column pairs | | `requests=id1:http://url1.xy,id2:http://url2.xy` |
+| timeout | Timeout in milliseconds | 10000 | `timeout=500`
+| type | Response Type `[json, delimeter]`| json | `type=json`
+| delimeter| Delimeter to use. (requires `type`) | ---XXX--- | `&type=delimeter&delimeter=---XXX---`
 
 Sample request with all parameters
 ```
