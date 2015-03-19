@@ -85,7 +85,7 @@ func (o *Orchestra) SetDelimiter(d string) {
 	o.responseType = typeDelimiter
 }
 
-// UseJson instructs the Orchestra to use Json for output
+// UseDelimeter instructs the Orchestra to use Json for output
 func (o *Orchestra) UseDelimeter() {
 	o.responseType = typeDelimiter
 }
