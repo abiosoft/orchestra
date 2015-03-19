@@ -1,4 +1,3 @@
-// Orchestration Layer
 package main
 
 import (
@@ -20,7 +19,7 @@ const (
 	typeDelimiter
 
 	defaultTimeout   = 10 * time.Second
-	defaultDelimeter = "---XXX---\n"
+	defaultDelimiter = "---XXX---\n"
 )
 
 var (
@@ -54,7 +53,7 @@ func NewOrchestra(requests ...ConnRequest) *Orchestra {
 		conns,
 		typeJson,
 		&sync.Mutex{},
-		defaultDelimeter,
+		defaultDelimiter,
 		defaultTimeout,
 	}
 }
