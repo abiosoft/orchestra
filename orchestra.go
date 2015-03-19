@@ -8,14 +8,18 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
-	typeJson      = iota
-	typeDelimiter = iota
+	typeJson = iota
+	typeDelimiter
+
+	defaultTimeout = 10 * time.Second
 )
 
 var errInvalidResponseType = errors.New("Invalid Response Type specified. Must be one of TypeJson, TypeDelimiter")
@@ -26,14 +30,13 @@ type Orchestra struct {
 	responseType uint8
 	cLock        *sync.Mutex
 	delimiter    string
+	timeout      time.Duration
 }
 
 // ConnRequest is the representation of the Connection Request used to initialize the Orchestra
 type ConnRequest struct {
-	// id is the identification of the Connection
-	id string
-	// url is the URL that the request will be sent to
-	url string
+	id  string // identification
+	url string // target url
 }
 
 // NewOrchestra creates a new orchestra. It initializes with ConnRequest(s)
@@ -41,12 +44,14 @@ func NewOrchestra(requests ...ConnRequest) *Orchestra {
 	conns := make([]*Conn, len(requests))
 	for i := range requests {
 		conns[i] = NewConn(requests[i])
+		conns[i].Timeout = defaultTimeout
 	}
 	return &Orchestra{
 		conns,
 		typeJson,
 		&sync.Mutex{},
 		"",
+		defaultTimeout,
 	}
 }
 
@@ -55,7 +60,16 @@ func (o *Orchestra) Add(r ConnRequest) {
 	o.cLock.Lock()
 	defer o.cLock.Unlock()
 	conn := NewConn(r)
+	conn.Timeout = o.timeout
 	o.conns = append(o.conns, conn)
+}
+
+// SetTimeout sets the timeout for http.Client used for each request
+func (o *Orchestra) SetTimeout(t time.Duration) {
+	o.timeout = t
+	for i := range o.conns {
+		o.conns[i].Timeout = o.timeout
+	}
 }
 
 // UseDelimiter instructs the Orchestra to use separate plain text outputs with delimeter instead of Json
@@ -76,15 +90,17 @@ func (o *Orchestra) UseJson() {
 // When done, it outputs to w
 func (o *Orchestra) Process(w http.ResponseWriter) {
 	var wg sync.WaitGroup
+	wg.Add(len(o.conns))
 	for i := range o.conns {
-		wg.Add(1)
-		go func(num int) {
-			o.conns[num].Fetch()
-			wg.Done()
-		}(i)
+		go fetchConns(o.conns[i], &wg)
 	}
 	wg.Wait()
 	processConns(o, w)
+}
+
+func fetchConns(conn *Conn, wg *sync.WaitGroup) {
+	conn.Fetch()
+	wg.Done()
 }
 
 // processConns distributes the output handler to respective function based on type
@@ -149,16 +165,11 @@ func outputDelimiter(o *Orchestra, w io.Writer) error {
 // TODO allow other request methods apart from GET
 type Conn struct {
 	*http.Client
-	// Id is the unique identification of the Request
-	id string
-	// Url is the target Url request will be sent to
-	url string
-	// Header is required http headers
-	Header http.Header
-	// Form parameters
-	Params map[string]string
-	// A wrapper for http.Response with the ability to read body into []byte
-	Response *Response
+	id       string            // identification
+	url      string            // target url
+	Header   http.Header       // http headers
+	Params   map[string]string // form parameters
+	Response *Response         // request response
 	err      error
 }
 
@@ -183,11 +194,13 @@ func (c *Conn) Fetch() error {
 		c.err = err
 		return err
 	}
+	// pass headers
 	req.Header = c.Header
 	values := req.URL.Query()
 	for m, v := range c.Params {
 		values.Add(m, v)
 	}
+	// workaround for query params
 	req.URL.RawQuery = values.Encode()
 	response, err := c.Do(req)
 	if err != nil {
@@ -230,7 +243,10 @@ func (r *Response) Output() RespOutput {
 	if r.extract == nil {
 		_, err := r.ReadAll()
 		if err != nil {
-			log.Println(err)
+			// check for timeout error
+			if te, ok := err.(net.Error); ok && te.Timeout() {
+				err = errors.New("Timeout exceeded! Connection terminated.")
+			}
 			return RespOutput{Error: err.Error()}
 		}
 	}
@@ -254,7 +270,7 @@ type RespOutput struct {
 
 // String returns the string representation to be used in TypeDelimeter response type.
 func (r *RespOutput) String() string {
-	return fmt.Sprintf("Id: %v,Status: %v\n%v\n", r.Id, r.Status, r.Body)
+	return fmt.Sprintf("Id: %v, Status: %v\n%v\n", r.Id, r.Status, r.Body)
 }
 
 // Bytes return the bytes representation of String()

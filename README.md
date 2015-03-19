@@ -5,11 +5,17 @@
 Runs API calls concurrently
 
 ### Usage
-Parameters are specified via comma separated key value column pairs through the `requests` `GET` parameter.
+#### APIs
+APIs are set via comma separated key value column pairs through the `requests` query parameter.
 ```
 http://127.0.0.1:8080?requests=identifier1:http://url1.xyz,identifier2:http://url2.xyz
 ```
-What if the `value` url has its own `GET` parameters? Url encode the entire query string starting from `?`.
+What if the `value` url has its own query parameters? Url encode the entire query string starting from `?`.
+#### Timeout
+Timeout can be set via `timeout` query parameter. Timeout is in milliseconds.
+```
+http://127.0.0.1:8080?requests=...&timeout=500
+```
 
 ### Response
 Response comes in 2 formats
@@ -31,7 +37,13 @@ Response comes in 2 formats
 ]
 ```
 #### 2. Delimeter Separated
-**under development**
+```
+Id: identifier1, Status: 200 OK
+<html><body><h1>It works!</h1></body></html>
+<Configured Delimeter>
+Id: identifier2, Status: 400 Bad Request
+Bad Request: required parameter 'requests' missing.
+```
 
 ### Server
 Defaults to Port `8080` but can be overidden using the first command line argument

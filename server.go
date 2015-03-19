@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 )
 
 func init() {
@@ -43,6 +45,12 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var timeout time.Duration
+	if t := strings.TrimSpace(r.FormValue("timeout")); t != "" {
+		tms, _ := strconv.ParseInt(t, 10, 64)
+		timeout = time.Duration(tms) * time.Millisecond
+	}
+
 	kv := strings.Split(rs, ",")
 	crs := make([]ConnRequest, len(kv))
 
@@ -57,5 +65,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orchestra := NewOrchestra(crs...)
+	if timeout > 0 {
+		orchestra.SetTimeout(timeout)
+	}
 	orchestra.Process(w)
 }
