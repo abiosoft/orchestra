@@ -13,12 +13,14 @@ http://127.0.0.1:8080?requests=identifier1:http://url1.xyz,identifier2:http://ur
 What if the `value` url has its own query parameters? Url encode the entire query string starting from `?`.
 ### Parameters
 
-| Parameter | Description | Default | Usage |
+| Parameter | Description | Default | Expected Value |
 | --------- | ----------- | ------- | ----- |
-| requests | Key value column pairs | | `requests=id1:http://url1.xy,id2:http://url2.xy` |
-| timeout | Timeout in milliseconds | 10000 | `timeout=500`
-| type | Response Type `[json, delimiter]`| json | `type=json`
-| delimiter| Delimiter to use. (requires `type=delimiter`) | ---XXX--- | `type=delimeter&delimeter=---XXX---`
+| requests* | Key value column pairs | | String |
+| timeout | Timeout in milliseconds | 10000 | Integer
+| type | Response Type | json | String, one of `[json, delimiter]`
+| delimiter**| Delimiter to use| ---XXX--- | String
+`* Required`  
+`** Requires type=delimiter`
 
 Sample request with all parameters
 ```
@@ -34,12 +36,14 @@ Response comes in 2 format specified by `type` parameter.
     "id": "identifier1",
     "status_code": 200,
     "status": "200 OK",
+    "duration": "130ms"
     "body": "<html><body><h1>It works!</h1></body></html>\n"
   },
   {
     "id": "identifier2",
     "status_code": 400,
     "status": "400 Bad Request",
+    "duration": "10ms"
     "body": "Bad Request: required parameter 'requests' missing."
   },
   {
@@ -50,10 +54,10 @@ Response comes in 2 format specified by `type` parameter.
 ```
 #### 2. Delimiter Separated
 ```
-Id: identifier1, Status: 200 OK
+Id: identifier1, Status: 200 OK, Duration: 130ms
 <html><body><h1>It works!</h1></body></html>
 ---XXX---
-Id: identifier2, Status: 400 Bad Request
+Id: identifier2, Status: 400 Bad Request, Duration: 10ms
 Bad Request: required parameter 'requests' missing.
 ---XXX---
 Id: identifier3, Status: error

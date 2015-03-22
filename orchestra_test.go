@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -22,34 +21,36 @@ var tHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(3 * time.Second)
 })
 
-var orcRespJson = `[{"id":"request1","status_code":200,"status":"200 OK","body":"OK/1"},{"id":"request2","status_code":200,"status":"200 OK","body":"OK/2"},{"id":"request3","status_code":200,"status":"200 OK","body":"OK/3"},{"id":"request4","status_code":200,"status":"200 OK","body":"OK/4"},{"id":"request5","status_code":200,"status":"200 OK","body":"OK/5"}]`
+var testResp = `{sample 200 200 OK %s  }`
 
-var orcRespDelim = `Id: request1, Status: 200 OK
+var orcRespJson = `[{"id":"request1","status_code":200,"status":"200 OK","duration":"%s","body":"OK/1"},{"id":"request2","status_code":200,"status":"200 OK","duration":"%s","body":"OK/2"},{"id":"request3","status_code":200,"status":"200 OK","duration":"%s","body":"OK/3"},{"id":"request4","status_code":200,"status":"200 OK","duration":"%s","body":"OK/4"},{"id":"request5","status_code":200,"status":"200 OK","duration":"%s","body":"OK/5"}]`
+
+var orcRespDelim = `Id: request1, Status: 200 OK, Duration: %s
 OK/1
 ====================
-Id: request2, Status: 200 OK
+Id: request2, Status: 200 OK, Duration: %s
 OK/2
 ====================
-Id: request3, Status: 200 OK
+Id: request3, Status: 200 OK, Duration: %s
 OK/3
 ====================
-Id: request4, Status: 200 OK
+Id: request4, Status: 200 OK, Duration: %s
 OK/4
 ====================
-Id: request5, Status: 200 OK
+Id: request5, Status: 200 OK, Duration: %s
 OK/5`
 
-var handRespJson = `[{"id":"id1","status_code":200,"status":"200 OK","body":"OK/"},{"id":"id2","status_code":200,"status":"200 OK","body":"OK/"}]`
+var handRespJson = `[{"id":"id1","status_code":200,"status":"200 OK","duration":"%s","body":"OK/"},{"id":"id2","status_code":200,"status":"200 OK","duration":"%s","body":"OK/"}]`
 
-var handRespDelim = []string{`Id: id1, Status: 200 OK
+var handRespDelim = []string{`Id: id1, Status: 200 OK, Duration: %s
 OK/
 ---XXX---
-Id: id2, Status: 200 OK
+Id: id2, Status: 200 OK, Duration: %s
 OK/`,
-	`Id: id1, Status: 200 OK
+	`Id: id1, Status: 200 OK, Duration: %s
 OK/
 000000
-Id: id2, Status: 200 OK
+Id: id2, Status: 200 OK, Duration: %s
 OK/`,
 }
 
@@ -60,12 +61,12 @@ func TestConn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, err := conn.Response.ReadAll()
-	if err != nil {
-		t.Fatal(err)
+	if conn.Response == nil {
+		t.Fatal("conn.Response should not be nil")
 	}
-	if !bytes.Equal(body, []byte("OK/")) {
-		t.Fatalf("expected %v found %v", "OK/", string(body))
+	testResp := insertDurations(testResp, conn)
+	if out := fmt.Sprint(conn.Response.output()); out != testResp {
+		t.Fatalf("Expected %v found %v", testResp, out)
 	}
 	testServer.Close()
 }
@@ -79,6 +80,7 @@ func TestOrchestra(t *testing.T) {
 	orchestra := NewOrchestra(rs...)
 	w := httptest.NewRecorder()
 	orchestra.Process(w)
+	orcRespJson := insertDurations(orcRespJson, orchestra.conns...)
 	if strings.TrimSpace(w.Body.String()) != orcRespJson {
 		t.Fatalf("expected %v found %v", orcRespJson, w.Body.String())
 	}
@@ -86,6 +88,7 @@ func TestOrchestra(t *testing.T) {
 	w = httptest.NewRecorder()
 	orchestra.SetDelimiter("====================")
 	orchestra.Process(w)
+	orcRespDelim := insertDurations(orcRespDelim, orchestra.conns...)
 	if strings.TrimSpace(w.Body.String()) != orcRespDelim {
 		t.Fatalf("expected %v found %v", orcRespDelim, w.Body.String())
 	}
@@ -102,6 +105,7 @@ func TestOrchestraAdd(t *testing.T) {
 	orchestra.Add(ConnRequest{fmt.Sprint("request", 5), fmt.Sprintf("%s/%d", testServer.URL, 5)})
 	w := httptest.NewRecorder()
 	orchestra.Process(w)
+	orcRespJson := insertDurations(orcRespJson, orchestra.conns...)
 	if strings.TrimSpace(w.Body.String()) != orcRespJson {
 		t.Fatalf("expected %v found %v", orcRespJson, w.Body.String())
 	}
@@ -129,9 +133,7 @@ func TestHandler(t *testing.T) {
 	w := httptest.NewRecorder()
 	testHandler := http.HandlerFunc(handler)
 	testHandler.ServeHTTP(w, req)
-	if strings.TrimSpace(w.Body.String()) != handRespJson {
-		t.Fatalf("expected %v found %v", handRespJson, string(w.Body.Bytes()))
-	}
+	compareJsonsMinusDuration([]byte(handRespJson), w.Body.Bytes(), t)
 }
 
 func TestHandlerTimeout(t *testing.T) {
@@ -155,7 +157,7 @@ func TestHandlerRespJson(t *testing.T) {
 	w := httptest.NewRecorder()
 	testHandler := http.HandlerFunc(handler)
 	testHandler.ServeHTTP(w, req)
-	if strings.TrimSpace(w.Body.String()) != handRespJson {
+	if !compareJsonsMinusDuration([]byte(handRespJson), w.Body.Bytes(), t) {
 		t.Fatalf("expected %v found %v", handRespJson, w.Body.String())
 	}
 }
@@ -169,7 +171,7 @@ func TestHandlerRespDelim(t *testing.T) {
 	w := httptest.NewRecorder()
 	testHandler := http.HandlerFunc(handler)
 	testHandler.ServeHTTP(w, req)
-	if strings.TrimSpace(w.Body.String()) != handRespDelim[0] {
+	if !compareDelimsMinusDurations(strings.TrimSpace(w.Body.String()), handRespDelim[0], defaultDelimiter, t) {
 		t.Fatalf("expected %v found %v", handRespDelim[0], w.Body.String())
 	}
 	req, err = http.NewRequest("GET", "/?type=delimiter&delimiter=000000&requests=id1:"+tServer.URL+",id2:"+tServer.URL, nil)
@@ -178,7 +180,7 @@ func TestHandlerRespDelim(t *testing.T) {
 	}
 	w.Body.Reset()
 	testHandler.ServeHTTP(w, req)
-	if strings.TrimSpace(w.Body.String()) != handRespDelim[1] {
+	if !compareDelimsMinusDurations(strings.TrimSpace(w.Body.String()), handRespDelim[1], "\n000000\n", t) {
 		t.Fatalf("expected %v found %v", handRespDelim[1], w.Body.String())
 	}
 }
@@ -194,4 +196,69 @@ func checkErrResp(t *testing.T, w *httptest.ResponseRecorder) {
 			t.Fatal("error expected", v)
 		}
 	}
+}
+
+func insertDurations(s string, conns ...*Conn) string {
+	durs := make([]interface{}, len(conns))
+	for i := range conns {
+		durs[i] = conns[i].Response.durationStr()
+	}
+	return fmt.Sprintf(s, durs...)
+}
+
+func compareJsonsMinusDuration(s, s1 []byte, t *testing.T) bool {
+	var m []interface{}
+	var m1 []interface{}
+	err := json.Unmarshal(s, &m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = json.Unmarshal(s1, &m1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m) != len(m1) {
+		t.Fatal("different json sizes")
+	}
+	keys := []string{"id", "status_code", "status", "body"}
+	for i := 0; i < len(m); i++ {
+		for _, k := range keys {
+			if m[i].(map[string]interface{})[k] != m1[i].(map[string]interface{})[k] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func compareDelimsMinusDurations(s, s1, delim string, t *testing.T) bool {
+	str := strings.Split(s, delim)
+	str1 := strings.Split(s1, delim)
+	equal := true
+	if len(str) != len(str1) {
+		t.Fatal("different output sizes")
+	}
+	for i := 0; i < len(str); i++ {
+		st := strings.Split(str[i], "\n")
+		st1 := strings.Split(str1[i], "\n")
+		if len(st) != len(st1) {
+			equal = false
+			break
+		}
+		for k, v := range st {
+			if k == 0 {
+				j := strings.Index(v, "Duration")
+				if st1[k][:j+1] != v[:j+1] {
+					equal = false
+					break
+				}
+				continue
+			}
+			if v != st1[k] {
+				equal = false
+				break
+			}
+		}
+	}
+	return equal
 }

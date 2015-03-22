@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -19,15 +18,15 @@ const (
 	typeDelimiter
 
 	defaultTimeout   = 10 * time.Second
-	defaultDelimiter = "---XXX---\n"
+	defaultDelimiter = "\n---XXX---\n"
 )
 
 var (
-	errInvalidResponseType = errors.New("Invalid Response Type specified. Must be one of TypeJson, TypeDelimiter")
+	errInvalidResponseType = errors.New("Invalid Response Type specified. Must be one of typeJson, typeDelimiter")
 	errTimeout             = errors.New("Timeout exceeded! Connection terminated.")
 )
 
-// Orchestra is the high level representation of the Orchestration Layer
+// Orchestra is the high level representation of the Orchestration Layer.
 type Orchestra struct {
 	conns        []*Conn
 	responseType uint8
@@ -36,7 +35,7 @@ type Orchestra struct {
 	timeout      time.Duration
 }
 
-// ConnRequest is the representation of the Connection Request used to initialize the Orchestra
+// ConnRequest is the representation of the Connection Request used to initialize the Orchestra.
 type ConnRequest struct {
 	id  string // identification
 	url string // target url
@@ -58,7 +57,7 @@ func NewOrchestra(requests ...ConnRequest) *Orchestra {
 	}
 }
 
-// Add adds a new Connection Request to the Orchestrac
+// Add adds a new Connection Request to the Orchestra.
 func (o *Orchestra) Add(r ConnRequest) {
 	o.cLock.Lock()
 	defer o.cLock.Unlock()
@@ -67,7 +66,7 @@ func (o *Orchestra) Add(r ConnRequest) {
 	o.conns = append(o.conns, conn)
 }
 
-// SetTimeout sets the timeout for http.Client used for each request
+// SetTimeout sets the timeout for http.Client used for each request.
 func (o *Orchestra) SetTimeout(t time.Duration) {
 	o.timeout = t
 	for i := range o.conns {
@@ -75,27 +74,27 @@ func (o *Orchestra) SetTimeout(t time.Duration) {
 	}
 }
 
-// SetDelimiter instructs the Orchestra to use separate plain text outputs with delimeter instead of Json
+// SetDelimiter instructs the Orchestra to use separate plain text outputs with delimeter instead of json.
 func (o *Orchestra) SetDelimiter(d string) {
-	o.delimiter = d
+	o.delimiter = "\n" + d
 	if !strings.HasSuffix(d, "\n") {
 		o.delimiter += "\n"
 	}
 	o.responseType = typeDelimiter
 }
 
-// UseDelimeter instructs the Orchestra to use Json for output
+// UseDelimeter instructs the Orchestra to use Json for output.
 func (o *Orchestra) UseDelimeter() {
 	o.responseType = typeDelimiter
 }
 
-// UseJson instructs the Orchestra to use Json for output
+// UseJson instructs the Orchestra to use Json for output.
 func (o *Orchestra) UseJson() {
 	o.responseType = typeJson
 }
 
 // Process processes all connection requests and send them concurrently
-// When done, it outputs to w
+// When done, it outputs to w.
 func (o *Orchestra) Process(w http.ResponseWriter) {
 	var wg sync.WaitGroup
 	wg.Add(len(o.conns))
@@ -111,7 +110,7 @@ func fetchConns(conn *Conn, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-// processConns distributes the output handler to respective function based on type
+// processConns distributes the output handler to respective function based on type.
 func processConns(o *Orchestra, w http.ResponseWriter) error {
 	var err error
 	switch o.responseType {
@@ -128,32 +127,21 @@ func processConns(o *Orchestra, w http.ResponseWriter) error {
 	return err
 }
 
-// outputJson extracts all responses from o and json encode into w
+// outputJson extracts all responses from o and json encode into w.
 func outputJson(o *Orchestra, w io.Writer) error {
-	resps := make([]respOutput, len(o.conns))
+	resps := make([]*Response, len(o.conns))
 	for i := range resps {
-		if o.conns[i].err != nil {
-			resps[i] = respOutput{Id: o.conns[i].id, Error: o.conns[i].err.Error()}
-			continue
-		}
-		resps[i] = o.conns[i].Response.output()
+		resps[i] = o.conns[i].Response
 	}
 	encoder := json.NewEncoder(w)
 	return encoder.Encode(resps)
 }
 
 // outputDelimiter extracts all responses from o and writes to w. It separates each response with
-// the specified delimeter
+// the specified delimiter.
 func outputDelimiter(o *Orchestra, w io.Writer) error {
 	for i := range o.conns {
-		var r respOutput
-		var err error
-		if o.conns[i].err != nil {
-			r = respOutput{Id: o.conns[i].id, Error: o.conns[i].err.Error()}
-		} else {
-			r = o.conns[i].Response.output()
-		}
-		_, err = w.Write(r.Bytes())
+		_, err := o.conns[i].Response.writeTo(w)
 		if err != nil {
 			log.Println(err)
 			return err
@@ -169,7 +157,7 @@ func outputDelimiter(o *Orchestra, w io.Writer) error {
 	return nil
 }
 
-// Conn is the individual connection that is handled by Orchestra
+// Conn is the individual connection that is handled by Orchestra.
 // TODO allow other request methods apart from GET
 type Conn struct {
 	*http.Client
@@ -178,10 +166,9 @@ type Conn struct {
 	Header   http.Header       // http headers
 	Params   map[string]string // form parameters
 	Response *Response         // request response
-	err      error
 }
 
-// NewConn creates a new Connection. It initiates with a ConnRequest for Id and Url
+// NewConn creates a new Connection. It initiates with a ConnRequest for Id and Url.
 func NewConn(r ConnRequest) *Conn {
 	return &Conn{
 		&http.Client{},
@@ -190,16 +177,16 @@ func NewConn(r ConnRequest) *Conn {
 		make(http.Header),
 		make(map[string]string),
 		nil,
-		nil,
 	}
 }
 
-// Fetch sends GET request to Conn's url and stores Response
+// Fetch sends GET request to Conn's url and stores Response.
 func (c *Conn) Fetch() error {
+	now := time.Now()
 	req, err := http.NewRequest("GET", c.url, nil)
 	if err != nil {
 		log.Println(err)
-		c.err = err
+		c.Response = &Response{nil, c.id, err, 0}
 		return err
 	}
 	// pass headers
@@ -215,13 +202,14 @@ func (c *Conn) Fetch() error {
 	response, err := c.Do(req)
 	if err != nil {
 		log.Println(err)
-		c.err = err
+		c.Response = &Response{nil, c.id, err, 0}
 		return err
 	}
 	c.Response = &Response{
 		response,
-		nil,
 		c.id,
+		nil,
+		time.Since(now),
 	}
 	return nil
 }
@@ -229,44 +217,81 @@ func (c *Conn) Fetch() error {
 // Response is a wrapper around http.Response.
 type Response struct {
 	*http.Response
-	extract []byte
-	id      string
+	id       string
+	err      error
+	duration time.Duration
 }
 
-// ReadAll read all bytes in Response and stores it in Extract
-func (r *Response) ReadAll() ([]byte, error) {
-	if r.extract != nil {
-		return r.extract, nil
-	}
-	b, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-	r.Body.Close()
-	r.extract = b
-	return b, nil
-}
-
-// Output returns a Json marshal friendly strcut of Response for output
+// Output returns a Json marshal friendly struct of Response for output.
 func (r *Response) output() respOutput {
-	if r.extract == nil {
-		_, err := r.ReadAll()
-		if err != nil {
-			// check for timeout error
-			if te, ok := err.(net.Error); ok && te.Timeout() {
-				err = errTimeout
-			}
-			return respOutput{Error: err.Error()}
+	if r.err != nil {
+		return respOutput{
+			Id:    r.id,
+			Error: r.err.Error(),
 		}
 	}
 	return respOutput{
-		r.id,
-		r.StatusCode,
-		r.Status,
-		string(r.extract),
-		"",
+		Id:         r.id,
+		StatusCode: r.StatusCode,
+		Status:     r.Status,
+		Duration:   r.durationStr(),
 	}
+}
+
+// Read reads []byte of maximum of len(p) into p. It returns the number
+// of bytes read and an error if any.
+func (r *Response) Read(p []byte) (int, error) {
+	return r.Body.Read(p)
+}
+
+// ReadAll reads all bytes from Response. It returns the bytes and an error if any.
+func (r *Response) ReadAll() ([]byte, error) {
+	return ioutil.ReadAll(r)
+}
+
+// writeTo writes Response of delimiter type into w.
+func (resp *Response) writeTo(w io.Writer) (int, error) {
+	r := resp.output()
+	if r.Error != "" {
+		return resp.writeErrTo(w, r.Error)
+	}
+	_, err := w.Write([]byte(fmt.Sprintf("Id: %v, Status: %v, Duration: %v\n", r.Id, r.Status, resp.durationStr())))
+	if err != nil {
+		return resp.writeErrTo(w, err.Error())
+	}
+	nn, err := io.Copy(w, resp.Body)
+	return int(nn), err
+}
+
+// Similar to writeTo but writes error response
+func (r *Response) writeErrTo(w io.Writer, err string) (int, error) {
+	return w.Write([]byte(fmt.Sprintf("Id: %v, Status: %v\n%v\n", r.id, "error", err)))
+}
+
+// MarshalJSON defines how Response is marshaled for JSON encoding.
+func (resp *Response) MarshalJSON() ([]byte, error) {
+	r := resp.output()
+	if r.Error != "" {
+		return resp.marshalErr(resp.id, r.Error)
+	}
+	body, err := ioutil.ReadAll(resp)
+	if err != nil {
+		return resp.marshalErr(resp.id, err.Error())
+	}
+	r.Body = string(body)
+	b, err := json.Marshal(r)
+	if err != nil {
+		return resp.marshalErr(resp.id, err.Error())
+	}
+	return b, nil
+}
+
+func (resp *Response) marshalErr(id, err string) ([]byte, error) {
+	return json.Marshal(respOutput{Id: id, Error: err})
+}
+
+func (r *Response) durationStr() string {
+	return fmt.Sprintf("%vms", int64(r.duration)/1e6)
 }
 
 // RespOutput is an output struct suited for Json marshal
@@ -274,19 +299,7 @@ type respOutput struct {
 	Id         string `json:"id"`
 	StatusCode int    `json:"status_code,omitempty"`
 	Status     string `json:"status,omitempty"`
+	Duration   string `json:"duration,omitempty"`
 	Body       string `json:"body,omitempty"`
 	Error      string `json:"error,omitempty"`
-}
-
-// String returns the string representation to be used in TypeDelimeter response type.
-func (r *respOutput) String() string {
-	if r.Error != "" {
-		return fmt.Sprintf("Id: %v, Status: %v\n%v\n", r.Id, "error", r.Error)
-	}
-	return fmt.Sprintf("Id: %v, Status: %v\n%v\n", r.Id, r.Status, r.Body)
-}
-
-// Bytes return the bytes representation of String()
-func (r *respOutput) Bytes() []byte {
-	return []byte(r.String())
 }
