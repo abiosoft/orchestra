@@ -36,14 +36,14 @@ Response comes in 2 format specified by `type` parameter.
     "id": "identifier1",
     "status_code": 200,
     "status": "200 OK",
-    "duration": "130ms"
+    "duration": "130ms",
     "body": "<html><body><h1>It works!</h1></body></html>\n"
   },
   {
     "id": "identifier2",
     "status_code": 400,
     "status": "400 Bad Request",
-    "duration": "10ms"
+    "duration": "10ms",
     "body": "Bad Request: required parameter 'requests' missing."
   },
   {
