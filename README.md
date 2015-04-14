@@ -17,8 +17,8 @@ What if the `value` url has its own query parameters? Url encode the entire quer
 | --------- | ----------- | ------- | ----- |
 | requests* | Key value column pairs | | String |
 | timeout | Timeout in milliseconds | 10000 | Integer
-| type | Response Type | json | String, one of `[json, delimiter]`
-| delimiter**| Delimiter to use| ---XXX--- | String
+| type | Response Type | json | String, one of `[json, delimiter]` |
+| delimiter**| Delimiter to use| ---XXX--- | String |
 `* Required`  
 `** Requires type=delimiter`
 
@@ -30,7 +30,7 @@ http://127.0.0.1:8080?requests=id1:http://url1.xy,id2:http://url2.xy&timeout=500
 ### Response
 Response comes in 2 format specified by `type` parameter.
 #### 1. Json
-```
+```json
 [
   {
     "id": "identifier1",
@@ -66,7 +66,7 @@ Request timed out
 
 ### Server
 Defaults to Port `8080` but can be overidden using the first command line argument
-```
+```shell
 $ orchestra 8080
 Orchestra listening on port 8080
 ```
@@ -75,7 +75,7 @@ Orchestra listening on port 8080
 Orchestra is still in very early stage and active development
 
 ### Installation
-```
+```shell
 $ go get github.com/abiosoft/orchestra
 ```
 Go is a prerequisite, [install it here](https://golang.org/doc/install) if you do not have it installed.
